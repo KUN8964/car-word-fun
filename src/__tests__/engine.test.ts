@@ -1,208 +1,194 @@
-import { describe, it, expect } from 'vitest';
-import { VEHICLES, VehicleColor, VehicleCategory } from '../vehicleData';
+import { describe, expect, it } from 'vitest';
+import { VEHICLES, type Vehicle, type VehicleColor } from '../vehicleData';
 import { createRound, evaluatePick, formatRoundLabel, sample, shuffle } from '../game/engine';
-import type { RoundGenParams } from '../game/engine';
+import type { RandomSource, RoundGenParams } from '../game/engine';
+import type { Round } from '../constants';
 
-describe('sample', () => {
-  it('returns correct number of items', () => {
-    const items = [1, 2, 3, 4, 5];
-    expect(sample(items, 3)).toHaveLength(3);
-  });
-
-  it('returns all items when count equals length', () => {
-    const items = [1, 2, 3];
-    expect(sample(items, 3)).toHaveLength(3);
-  });
-
-  it('returns empty when count is 0', () => {
-    expect(sample([1, 2, 3], 0)).toHaveLength(0);
-  });
-});
-
-describe('shuffle', () => {
-  it('returns same length', () => {
-    const items = [1, 2, 3, 4, 5];
-    expect(shuffle(items)).toHaveLength(5);
-  });
-
-  it('contains all original elements', () => {
-    const items = [1, 2, 3, 4, 5];
-    expect(shuffle(items).sort()).toEqual([1, 2, 3, 4, 5]);
-  });
-});
+function sequenceRandom(values: number[], fallback = 0): RandomSource {
+  let index = 0;
+  return () => values[index++] ?? fallback;
+}
 
 function makeParams(overrides: Partial<RoundGenParams> = {}): RoundGenParams {
-  const markedVehicles = VEHICLES.filter((v) => v.color !== 'unknown');
+  const markedVehicles = VEHICLES.filter((vehicle) => vehicle.color !== 'unknown');
   const colorCounts = new Map<VehicleColor, number>();
-  markedVehicles.forEach((v) => {
-    colorCounts.set(v.color, (colorCounts.get(v.color) || 0) + 1);
+  markedVehicles.forEach((vehicle) => {
+    colorCounts.set(vehicle.color, (colorCounts.get(vehicle.color) || 0) + 1);
   });
 
   return {
     colorCounts,
     markedVehicles,
-    categoryForVehicle: (v) => v.category,
-    colorForVehicle: (v) => v.color,
+    categoryForVehicle: (vehicle) => vehicle.category,
+    colorForVehicle: (vehicle) => vehicle.color,
     collectedCards: ['458', 'g63', 'f40', 'ae86', 'r8'],
     language: 'zh',
-    colorLabel: (c: VehicleColor) => c,
+    colorLabel: (color) => color,
+    random: () => 0,
     ...overrides,
   };
 }
 
+function colorRound(options: Vehicle[]): Round {
+  return {
+    questionType: 'color',
+    targetColor: 'red',
+    targetCount: 1,
+    options,
+    selectedIds: [],
+    matchedTargets: [],
+    lastSelectedId: null,
+    result: 'idle',
+  };
+}
+
+describe('random helpers', () => {
+  it('samples without mutating the source array', () => {
+    const items = [1, 2, 3, 4];
+    expect(sample(items, 2, () => 0)).toEqual([1, 2]);
+    expect(items).toEqual([1, 2, 3, 4]);
+  });
+
+  it('returns no more items than are available', () => {
+    expect(sample([1, 2], 5, () => 0)).toEqual([1, 2]);
+  });
+
+  it('shuffles using the provided random source', () => {
+    expect(shuffle([1, 2, 3], () => 0.999)).toEqual([3, 2, 1]);
+  });
+});
+
 describe('createRound', () => {
-  it('generates a valid round with options', () => {
-    const round = createRound(makeParams());
-    expect(round.questionType).toBeDefined();
-    if (round.questionType === 'math') {
-      expect(round.mathQuestion).toBeTruthy();
-      expect(round.mathChoices?.length).toBeGreaterThan(0);
-    } else {
-      expect(round.options.length).toBeGreaterThan(0);
-    }
+  it('generates a deterministic color round', () => {
+    const round = createRound(makeParams({
+      collectedCards: [],
+      random: sequenceRandom([0.9, 0.9]),
+    }));
+
+    expect(round.questionType).toBe('color');
+    expect(round.targetColor).toBeDefined();
     expect(round.targetCount).toBeGreaterThan(0);
-    expect(round.result).toBe('idle');
-    expect(round.selectedIds).toEqual([]);
+    expect(round.options).toHaveLength(8);
   });
 
-  it('generates color round when available', () => {
-    const params = makeParams();
-    params.markedVehicles = VEHICLES.filter((v) => v.color !== 'unknown');
-    params.colorCounts = new Map();
-    params.markedVehicles.forEach((v) => {
-      params.colorCounts.set(v.color, (params.colorCounts.get(v.color) || 0) + 1);
-    });
+  it('generates a deterministic category round', () => {
+    const round = createRound(makeParams({
+      collectedCards: [],
+      random: sequenceRandom([0.9, 0.1]),
+    }));
 
-    for (let i = 0; i < 10; i++) {
-      const round = createRound(params);
-      if (round.questionType === 'math') {
-        // Math rounds have empty options — valid
-        expect(round.mathChoices).toBeTruthy();
-        continue;
-      }
-      expect(round.options.length).toBeGreaterThan(0);
-      expect(round.targetCount).toBeGreaterThan(0);
-      if (round.questionType === 'color') {
-        expect(round.targetColor).toBeDefined();
-      }
-    }
+    expect(round.questionType).toBe('category');
+    expect(round.targetCategory).toBeDefined();
+    expect(round.targetCount).toBeGreaterThan(0);
   });
 
-  it('generates math round when collectedCards >= 3', () => {
-    const params = makeParams({ collectedCards: ['458', 'g63', 'f40', 'ae86'] });
-    let mathCount = 0;
-    for (let i = 0; i < 30; i++) {
-      const round = createRound(params);
-      if (round.questionType === 'math') {
-        mathCount++;
-        expect(round.mathQuestion).toBeTruthy();
-        expect(round.mathChoices).toHaveLength(4);
-        expect(round.mathChoices).toContain(round.targetCount);
-      }
-    }
-    // At least some math rounds should appear
-    expect(mathCount).toBeGreaterThan(0);
+  it('generates a deterministic math round with four choices', () => {
+    const round = createRound(makeParams({ random: () => 0 }));
+
+    expect(round.questionType).toBe('math');
+    expect(round.mathQuestion).toBeTruthy();
+    expect(round.mathChoices).toHaveLength(4);
+    expect(round.mathChoices).toContain(round.targetCount);
   });
 
-  it('options are shuffled (not in original order)', () => {
-    const params = makeParams();
-    let sameOrder = 0;
-    for (let i = 0; i < 10; i++) {
-      const round = createRound(params);
-      if (round.questionType === 'color' && round.options.length >= 2) {
-        // Check if shuffled by comparing with VEHICLES order
-        const ids = round.options.map((v) => v.id);
-        const sorted = [...ids].sort();
-        if (ids.join(',') === sorted.join(',')) sameOrder++;
-      }
-    }
-    // Most rounds should be shuffled
-    expect(sameOrder).toBeLessThan(8);
+  it('ignores stale collected-card IDs when deciding whether math is available', () => {
+    const round = createRound(makeParams({
+      collectedCards: ['removed-1', 'removed-2', 'removed-3'],
+      random: sequenceRandom([0, 0]),
+    }));
+
+    expect(round.questionType).not.toBe('math');
+  });
+
+  it('keeps a mixed round reachable when only one vehicle color is available', () => {
+    const vehicle = VEHICLES.find((item) => item.id === '458')!;
+    const round = createRound(makeParams({
+      markedVehicles: [vehicle],
+      colorCounts: new Map([['red', 1]]),
+      collectedCards: [],
+      random: sequenceRandom([0.2, 0, 0, 0]),
+    }));
+
+    expect(round.questionType).toBe('mixed');
+    expect(round.targetCount).toBe(1);
+    expect(round.options).toEqual([vehicle]);
+    expect(round.mixedTargets).toEqual([{ color: 'red', category: 'car', count: 1 }]);
+  });
+
+  it('never asks for more mixed targets than it puts in the options', () => {
+    const round = createRound(makeParams({
+      collectedCards: [],
+      random: sequenceRandom([0.2, 0.9]),
+    }));
+
+    expect(round.questionType).toBe('mixed');
+    expect(round.targetCount).toBeGreaterThan(0);
+    expect(round.targetCount).toBeLessThanOrEqual(round.options.length);
+    expect(round.mixedTargets?.reduce((sum, target) => sum + target.count, 0)).toBe(round.targetCount);
   });
 });
 
 describe('evaluatePick', () => {
-  it('detects correct color pick', () => {
-    const params = makeParams();
-    // Force a color round with specific target
-    const round = createRound(params);
-    if (round.questionType !== 'color' || !round.targetColor) return;
+  const redVehicle = VEHICLES.find((vehicle) => vehicle.color === 'red')!;
+  const blueVehicle = VEHICLES.find((vehicle) => vehicle.color === 'blue')!;
 
-    const correctVehicle = round.options.find((v) => v.color === round.targetColor);
-    if (!correctVehicle) return;
-
+  it('accepts a correct color pick', () => {
     const result = evaluatePick({
-      vehicle: correctVehicle,
-      round,
-      colorForVehicle: (v) => v.color,
-      categoryForVehicle: (v) => v.category,
+      vehicle: redVehicle,
+      round: colorRound([redVehicle, blueVehicle]),
+      colorForVehicle: (vehicle) => vehicle.color,
+      categoryForVehicle: (vehicle) => vehicle.category,
     });
+
     expect(result.correct).toBe(true);
-    expect(result.selectedIds).toContain(correctVehicle.id);
+    expect(result.result).toBe('correct');
+    expect(result.selectedIds).toEqual([redVehicle.id]);
   });
 
-  it('detects wrong pick', () => {
-    const params = makeParams();
-    const round = createRound(params);
-    if (round.questionType !== 'color' || !round.targetColor) return;
-
-    const wrongVehicle = round.options.find((v) => v.color !== round.targetColor);
-    if (!wrongVehicle) return;
-
+  it('rejects a wrong color pick without selecting it', () => {
     const result = evaluatePick({
-      vehicle: wrongVehicle,
-      round,
-      colorForVehicle: (v) => v.color,
-      categoryForVehicle: (v) => v.category,
+      vehicle: blueVehicle,
+      round: colorRound([redVehicle, blueVehicle]),
+      colorForVehicle: (vehicle) => vehicle.color,
+      categoryForVehicle: (vehicle) => vehicle.category,
     });
+
     expect(result.correct).toBe(false);
     expect(result.result).toBe('wrong');
+    expect(result.selectedIds).toEqual([]);
   });
 
-  it('ignores already selected vehicle', () => {
-    const params = makeParams();
-    const round = createRound(params);
-    if (round.questionType !== 'color' || !round.targetColor) return;
+  it('ignores an already selected vehicle', () => {
+    const round = colorRound([redVehicle, blueVehicle]);
+    round.targetCount = 2;
+    round.selectedIds = [redVehicle.id];
+    round.result = 'progress';
 
-    const correctVehicle = round.options.find((v) => v.color === round.targetColor);
-    if (!correctVehicle) return;
-
-    // First pick
-    const r1 = { ...round, selectedIds: [correctVehicle.id] };
     const result = evaluatePick({
-      vehicle: correctVehicle,
-      round: r1,
-      colorForVehicle: (v) => v.color,
-      categoryForVehicle: (v) => v.category,
+      vehicle: redVehicle,
+      round,
+      colorForVehicle: (vehicle) => vehicle.color,
+      categoryForVehicle: (vehicle) => vehicle.category,
     });
+
     expect(result.correct).toBe(false);
-    expect(result.selectedIds).toEqual([correctVehicle.id]); // unchanged
+    expect(result.result).toBe('progress');
+    expect(result.selectedIds).toEqual([redVehicle.id]);
   });
 });
 
 describe('formatRoundLabel', () => {
-  const zhParams = makeParams({ language: 'zh' });
-  const enParams = makeParams({ language: 'en' });
+  it('formats color, category, and mixed labels without random setup', () => {
+    const round = colorRound([]);
+    expect(formatRoundLabel(round, 'zh', (color) => color)).toBe('red');
 
-  it('formats color round label', () => {
-    const round = createRound(zhParams);
-    if (round.questionType !== 'color') return;
-    const label = formatRoundLabel(round, 'zh', (c) => c);
-    expect(label).toBeTruthy();
-  });
+    expect(formatRoundLabel({ ...round, questionType: 'category', targetCategory: 'bus' }, 'zh', (color) => color))
+      .toBe('巴士');
 
-  it('formats category round label', () => {
-    // Force category round
-    const params = makeParams();
-    const catVehicles = VEHICLES.filter((v) => v.category === 'car' && v.color !== 'unknown');
-    params.markedVehicles = catVehicles;
-    params.colorCounts = new Map();
-    catVehicles.forEach((v) => params.colorCounts.set(v.color, (params.colorCounts.get(v.color) || 0) + 1));
-
-    const round = createRound(params);
-    if (round.questionType !== 'category') return;
-    const label = formatRoundLabel(round, 'zh', (c) => c);
-    expect(label).toBeTruthy();
-    expect(typeof label).toBe('string');
+    expect(formatRoundLabel({
+      ...round,
+      questionType: 'mixed',
+      mixedTargets: [{ color: 'red', category: 'race', count: 2 }],
+    }, 'zh', (color) => color)).toBe('2 red 赛车');
   });
 });
