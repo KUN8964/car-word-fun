@@ -13,6 +13,7 @@ import { Header } from './components/Header';
 import { PlayView } from './views/PlayView';
 import { GarageView } from './views/GarageView';
 import { ParentsView } from './views/ParentsView';
+import { MemoryView } from './views/MemoryView';
 import { RewardModal } from './components/RewardModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles.css';
@@ -180,7 +181,13 @@ function HomeView() {
       <button
         className="absolute bottom-4 right-4 z-[60] flex items-center gap-2 font-display uppercase leading-none opacity-95 transition-opacity duration-200 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#202A36]/30 sm:bottom-10 sm:right-10 sm:gap-3"
         type="button"
-        onClick={() => openView(activeSlide.cta === 'MY GARAGE' ? 'garage' : 'play')}
+        onClick={() => openView(
+          activeSlide.cta === 'MY GARAGE'
+            ? 'garage'
+            : activeSlide.cta === 'MEMORY GAME'
+              ? 'memory'
+              : 'play',
+        )}
         style={{ fontFamily: "'Anton', sans-serif", fontSize: 'clamp(22px, 4vw, 58px)', fontWeight: 400, letterSpacing: 0 }}
       >
         <span>{activeSlideText.cta}</span>
@@ -215,6 +222,7 @@ function AppShell() {
 
       {view === 'home' && <HomeView />}
       {view === 'play' && <PlayView />}
+      {view === 'memory' && <MemoryView />}
       {view === 'garage' && <GarageView />}
       {view === 'parents' && <ParentsView />}
 

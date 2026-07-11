@@ -18,7 +18,7 @@ export function Header({ isMobile, isMenuOpen, setIsMenuOpen }: HeaderProps) {
         <button
           className="text-left text-xs font-extrabold uppercase tracking-[0.16em] opacity-90 outline-none transition-opacity focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[#202A36]/30 sm:text-sm"
           type="button"
-          onClick={() => openView('home')}
+          onClick={() => { openView('home'); setIsMenuOpen(false); }}
         >
           CAR CAR ADVENTURE
         </button>
@@ -70,7 +70,7 @@ export function Header({ isMobile, isMenuOpen, setIsMenuOpen }: HeaderProps) {
               key={item.label}
               type="button"
               className="rounded-2xl px-4 py-3 text-left text-base font-extrabold uppercase tracking-[0.14em] transition-colors hover:bg-white/60"
-              onClick={() => openView(item.view)}
+              onClick={() => { openView(item.view); setIsMenuOpen(false); }}
             >
               {t.nav[item.label]}
             </button>
