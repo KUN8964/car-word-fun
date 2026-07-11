@@ -8,18 +8,20 @@ import { logger } from '../logger';
 
 // ── helpers ──────────────────────────────────────────────
 
-export function sample<T>(items: T[], count: number) {
+export type RandomSource = () => number;
+
+export function sample<T>(items: T[], count: number, random: RandomSource = Math.random) {
   const pool = [...items];
   const picked: T[] = [];
   while (pool.length && picked.length < count) {
-    const index = Math.floor(Math.random() * pool.length);
+    const index = Math.floor(random() * pool.length);
     picked.push(pool.splice(index, 1)[0]);
   }
   return picked;
 }
 
-export function shuffle<T>(items: T[]) {
-  return sample(items, items.length);
+export function shuffle<T>(items: T[], random: RandomSource = Math.random) {
+  return sample(items, items.length, random);
 }
 
 // ── round generator ──────────────────────────────────────
@@ -32,12 +34,13 @@ export interface RoundGenParams {
   collectedCards: string[];
   language: Language;
   colorLabel: (c: VehicleColor) => string;
+  random?: RandomSource;
 }
 
 export function createRound(params: RoundGenParams): Round {
   const {
     colorCounts, markedVehicles, categoryForVehicle, colorForVehicle,
-    collectedCards, language, colorLabel,
+    collectedCards, language, colorLabel, random = Math.random,
   } = params;
 
   const availableColors = GAME_COLORS.filter((c) => (colorCounts.get(c) || 0) > 0);
@@ -48,36 +51,39 @@ export function createRound(params: RoundGenParams): Round {
   const canDoColor = availableColors.length > 0;
   const canDoCategory = categoriesWithCounts.length > 0;
   const canDoMixed = canDoColor && canDoCategory;
-  const canDoMath = collectedCards.length >= 3;
-  const roll = Math.random();
+  const vehicleIds = new Set(VEHICLES.map((vehicle) => vehicle.id));
+  const validCollectedCards = collectedCards.filter((id) => vehicleIds.has(id));
+  const canDoMath = validCollectedCards.length >= 3;
+  const roll = random();
   const useMath = canDoMath && roll < 0.15;
   const useMixed = !useMath && canDoMixed && roll < 0.30;
-  const useCategory = !useMath && !useMixed && canDoCategory && (!canDoColor || Math.random() < 0.4);
+  const useCategory = !useMath && !useMixed && canDoCategory && (!canDoColor || random() < 0.4);
 
   logger.debug('engine', 'createRound', { useMath, useMixed, useCategory, canDoColor, canDoCategory, canDoMath, collectedCards: collectedCards.length });
 
-  if (useMath) return buildMathRound(colorForVehicle, language, colorLabel, collectedCards);
-  if (useMixed) return buildMixedRound(colorForVehicle, categoryForVehicle, availableColors, markedVehicles);
-  if (useCategory) return buildCategoryRound(categoryForVehicle, categoriesWithCounts, markedVehicles);
-  return buildColorRound(colorForVehicle, availableColors, markedVehicles);
+  if (useMath) return buildMathRound(colorForVehicle, language, colorLabel, validCollectedCards, random);
+  if (useMixed) return buildMixedRound(colorForVehicle, categoryForVehicle, availableColors, markedVehicles, random);
+  if (useCategory) return buildCategoryRound(categoryForVehicle, categoriesWithCounts, markedVehicles, random);
+  return buildColorRound(colorForVehicle, availableColors, markedVehicles, random);
 }
 
 function buildColorRound(
   colorForVehicle: (v: Vehicle) => VehicleColor,
   availableColors: VehicleColor[],
   markedVehicles: Vehicle[],
+  random: RandomSource,
 ): Round {
-  const targetColor = availableColors[Math.floor(Math.random() * availableColors.length)] || 'red';
+  const targetColor = availableColors[Math.floor(random() * availableColors.length)] || 'red';
   const targetPool = markedVehicles.filter((v) => colorForVehicle(v) === targetColor);
   const distractorPool = markedVehicles.filter((v) => colorForVehicle(v) !== targetColor);
   const maxTargetCount = Math.min(targetPool.length, 5);
-  const targetCount = Math.floor(Math.random() * maxTargetCount) + 1;
-  const targetVehicles = sample(targetPool, targetCount);
-  const distractors = sample(distractorPool, Math.max(0, 8 - targetVehicles.length));
+  const targetCount = Math.floor(random() * maxTargetCount) + 1;
+  const targetVehicles = sample(targetPool, targetCount, random);
+  const distractors = sample(distractorPool, Math.max(0, 8 - targetVehicles.length), random);
 
   return {
     questionType: 'color', targetColor, targetCount: targetVehicles.length,
-    options: shuffle([...targetVehicles, ...distractors]).slice(0, 8),
+    options: shuffle([...targetVehicles, ...distractors], random).slice(0, 8),
     selectedIds: [], matchedTargets: [], lastSelectedId: null, result: 'idle',
   };
 }
@@ -86,18 +92,19 @@ function buildCategoryRound(
   categoryForVehicle: (v: Vehicle) => VehicleCategory,
   categoriesWithCounts: VehicleCategory[],
   markedVehicles: Vehicle[],
+  random: RandomSource,
 ): Round {
-  const targetCategory = categoriesWithCounts[Math.floor(Math.random() * categoriesWithCounts.length)];
+  const targetCategory = categoriesWithCounts[Math.floor(random() * categoriesWithCounts.length)];
   const targetPool = markedVehicles.filter((v) => categoryForVehicle(v) === targetCategory);
   const distractorPool = markedVehicles.filter((v) => categoryForVehicle(v) !== targetCategory);
   const maxTargetCount = Math.min(targetPool.length, 5);
-  const targetCount = Math.floor(Math.random() * maxTargetCount) + 1;
-  const targetVehicles = sample(targetPool, targetCount);
-  const distractors = sample(distractorPool, Math.max(0, 8 - targetVehicles.length));
+  const targetCount = Math.floor(random() * maxTargetCount) + 1;
+  const targetVehicles = sample(targetPool, targetCount, random);
+  const distractors = sample(distractorPool, Math.max(0, 8 - targetVehicles.length), random);
 
   return {
     questionType: 'category', targetCategory, targetCount: targetVehicles.length,
-    options: shuffle([...targetVehicles, ...distractors]).slice(0, 8),
+    options: shuffle([...targetVehicles, ...distractors], random).slice(0, 8),
     selectedIds: [], matchedTargets: [], lastSelectedId: null, result: 'idle',
   };
 }
@@ -107,41 +114,44 @@ function buildMixedRound(
   categoryForVehicle: (v: Vehicle) => VehicleCategory,
   availableColors: VehicleColor[],
   markedVehicles: Vehicle[],
+  random: RandomSource,
 ): Round {
-  const isCrossType = Math.random() < 0.5;
+  // Multi-color questions need two distinct colors. When the parent has left
+  // only one color enabled, the color + category form is still valid.
+  const isCrossType = availableColors.length < 2 || random() < 0.5;
 
   if (isCrossType) {
-    const targetColor = availableColors[Math.floor(Math.random() * availableColors.length)];
+    const targetColor = availableColors[Math.floor(random() * availableColors.length)];
     const crossPool = markedVehicles.filter((v) => colorForVehicle(v) === targetColor);
     const availableCatsForColor = CATEGORY_OPTIONS.filter((cat) =>
       crossPool.some((v) => categoryForVehicle(v) === cat),
     );
     if (availableCatsForColor.length === 0) {
-      return buildColorRound(colorForVehicle, availableColors, markedVehicles);
+      return buildColorRound(colorForVehicle, availableColors, markedVehicles, random);
     }
-    const targetCategory = availableCatsForColor[Math.floor(Math.random() * availableCatsForColor.length)];
+    const targetCategory = availableCatsForColor[Math.floor(random() * availableCatsForColor.length)];
     const matchPool = crossPool.filter((v) => categoryForVehicle(v) === targetCategory);
     const maxCount = Math.min(matchPool.length, 3);
-    const targetCount = Math.floor(Math.random() * maxCount) + 1;
+    const targetCount = Math.floor(random() * maxCount) + 1;
     return buildMixedWithTargets(
       [{ color: targetColor, category: targetCategory, count: targetCount }],
-      markedVehicles, colorForVehicle, categoryForVehicle,
+      markedVehicles, colorForVehicle, categoryForVehicle, random,
     );
   }
 
   // Multi-color type
-  const shuffled = shuffle([...availableColors]);
+  const shuffled = shuffle([...availableColors], random);
   const c1 = shuffled[0];
-  const c2 = shuffled.length > 1 ? shuffled[1] : c1;
+  const c2 = shuffled[1];
   const pool1 = markedVehicles.filter((v) => colorForVehicle(v) === c1);
-  const pool2 = markedVehicles.filter((v) => colorForVehicle(v) === c2 && v.id !== pool1[0]?.id);
+  const pool2 = markedVehicles.filter((v) => colorForVehicle(v) === c2);
   const cnt1 = Math.min(pool1.length, 2);
   const cnt2 = Math.min(pool2.length, 2);
   const mixedTargets: MixedTarget[] = [
     { color: c1, count: Math.max(1, cnt1) },
     { color: c2, count: Math.max(1, cnt2) },
   ];
-  return buildMixedWithTargets(mixedTargets, markedVehicles, colorForVehicle, categoryForVehicle);
+  return buildMixedWithTargets(mixedTargets, markedVehicles, colorForVehicle, categoryForVehicle, random);
 }
 
 function buildMixedWithTargets(
@@ -149,9 +159,10 @@ function buildMixedWithTargets(
   markedVehicles: Vehicle[],
   colorForVehicle: (v: Vehicle) => VehicleColor,
   categoryForVehicle: (v: Vehicle) => VehicleCategory,
+  random: RandomSource,
 ): Round {
-  const totalTargetCount = targets.reduce((sum, t) => sum + t.count, 0);
   const actualTargets: Vehicle[] = [];
+  const reachableTargets: MixedTarget[] = [];
   const usedIds = new Set<string>();
   targets.forEach((t) => {
     const matching = markedVehicles.filter((v) => {
@@ -160,16 +171,17 @@ function buildMixedWithTargets(
       if (t.color) return colorForVehicle(v) === t.color;
       return false;
     });
-    const picked = sample(matching, t.count);
+    const picked = sample(matching, t.count, random);
     picked.forEach((v) => usedIds.add(v.id));
     actualTargets.push(...picked);
+    if (picked.length > 0) reachableTargets.push({ ...t, count: picked.length });
   });
   const distractorPool = markedVehicles.filter((v) => !usedIds.has(v.id));
-  const distractors = sample(distractorPool, Math.max(0, 8 - actualTargets.length));
+  const distractors = sample(distractorPool, Math.max(0, 8 - actualTargets.length), random);
 
   return {
-    questionType: 'mixed', mixedTargets: targets, targetCount: totalTargetCount,
-    options: shuffle([...actualTargets, ...distractors]).slice(0, 8),
+    questionType: 'mixed', mixedTargets: reachableTargets, targetCount: actualTargets.length,
+    options: shuffle([...actualTargets, ...distractors], random).slice(0, 8),
     selectedIds: [], matchedTargets: [], lastSelectedId: null, result: 'idle',
   };
 }
@@ -179,6 +191,7 @@ function buildMathRound(
   language: Language,
   colorLabel: (c: VehicleColor) => string,
   collectedCards: string[],
+  random: RandomSource,
 ): Round {
   const collectedVehicles = VEHICLES.filter((v) => collectedCards.includes(v.id));
   const collectedByColor = new Map<VehicleColor, Vehicle[]>();
@@ -191,12 +204,12 @@ function buildMathRound(
 
   let a: number, b: number, answer: number;
   let questionText: string;
-  const isAddition = Math.random() < 0.6;
+  const isAddition = random() < 0.6;
 
   if (isAddition && colorEntries.length >= 2) {
-    const [c1, v1] = colorEntries[Math.floor(Math.random() * colorEntries.length)];
+    const [c1, v1] = colorEntries[Math.floor(random() * colorEntries.length)];
     const remaining = colorEntries.filter(([c]) => c !== c1);
-    const [c2, v2] = remaining[Math.floor(Math.random() * remaining.length)];
+    const [c2, v2] = remaining[Math.floor(random() * remaining.length)];
     a = Math.min(v1.length, 5);
     b = Math.min(v2.length, 3);
     answer = a + b;
@@ -204,9 +217,9 @@ function buildMathRound(
       ? `${a}辆${colorLabel(c1)} + ${b}辆${colorLabel(c2)} = ?`
       : `${a} ${colorLabel(c1)} + ${b} ${colorLabel(c2)} = ?`;
   } else {
-    const [c1, v1] = colorEntries[Math.floor(Math.random() * colorEntries.length)];
+    const [c1, v1] = colorEntries[Math.floor(random() * colorEntries.length)];
     a = Math.min(v1.length, 8);
-    b = Math.floor(Math.random() * Math.min(a, 3)) + 1;
+    b = Math.floor(random() * Math.min(a, 3)) + 1;
     answer = a - b;
     questionText = language === 'zh'
       ? `${a}辆${colorLabel(c1)}，开走${b}辆 = ?`
@@ -216,7 +229,7 @@ function buildMathRound(
   const choices = new Set<number>([answer]);
   let attempts = 0;
   while (choices.size < 4 && attempts < 100) {
-    const offset = Math.floor(Math.random() * 5) - 2;
+    const offset = Math.floor(random() * 5) - 2;
     const c = answer + offset;
     if (c >= 0 && c <= 10) choices.add(c);
     attempts++;
@@ -228,7 +241,7 @@ function buildMathRound(
 
   return {
     questionType: 'math', targetCount: answer,
-    mathQuestion: questionText, mathChoices: shuffle(Array.from(choices)),
+    mathQuestion: questionText, mathChoices: shuffle(Array.from(choices), random),
     options: [], selectedIds: [], matchedTargets: [], lastSelectedId: null, result: 'idle',
   };
 }

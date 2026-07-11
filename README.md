@@ -68,13 +68,11 @@ src/
 
 ## 部署
 
-```bash
-npm run build
-cp -r dist /tmp/dist-deploy
-git checkout gh-pages
-# 清空分支 → 复制 dist 内容 → git add -A → commit → push --force
-git checkout main
-```
+推送到 `main` 后，GitHub Actions 会先运行测试和生产构建，通过后自动部署 `dist/`
+到 GitHub Pages。仓库的 **Settings → Pages → Build and deployment** 需要选择
+**GitHub Actions**。
+
+也可在 Actions 页面手动运行 `Deploy GitHub Pages` workflow。
 
 线上地址：https://kun8964.github.io/car-word-fun/
 
