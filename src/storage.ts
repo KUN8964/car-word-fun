@@ -9,15 +9,28 @@ export type StorageV2 = {
   lockedCategories: Record<string, boolean>;
   collectedCards: string[];
   streak: number;
+  memoryBest: Record<string, MemoryBestResult>;
 };
+
+export type MemoryBestResult = {
+  moves: number;
+  seconds: number;
+};
+
+const validVehicleIds = new Set(VEHICLES.map((vehicle) => vehicle.id));
+
+function createDefaultLocks(): Record<string, boolean> {
+  return Object.fromEntries(VEHICLES.map((vehicle) => [vehicle.id, true]));
+}
 
 export const DEFAULT_V2: StorageV2 = {
   colorOverrides: {},
   categoryOverrides: {},
-  lockedColors: {},
-  lockedCategories: {},
+  lockedColors: createDefaultLocks(),
+  lockedCategories: createDefaultLocks(),
   collectedCards: [],
   streak: 0,
+  memoryBest: {},
 };
 
 const KEY_V2 = 'car-car-adventure-tags-v2';
@@ -25,16 +38,16 @@ const KEY_V1 = 'car-car-adventure-color-tags-v1';
 
 const validColors = new Set<string>(VALID_COLORS);
 const validCategories = new Set<string>(CATEGORY_OPTIONS);
-const validVehicleIds = new Set(VEHICLES.map((vehicle) => vehicle.id));
 
 function freshDefaults(): StorageV2 {
   return {
     colorOverrides: {},
     categoryOverrides: {},
-    lockedColors: {},
-    lockedCategories: {},
+    lockedColors: createDefaultLocks(),
+    lockedCategories: createDefaultLocks(),
     collectedCards: [],
     streak: 0,
+    memoryBest: {},
   };
 }
 
@@ -52,11 +65,25 @@ function sanitizeEnumRecord<T extends string>(
   ) as Record<string, T>;
 }
 
-function sanitizeBooleanRecord(value: unknown): Record<string, boolean> {
+function sanitizeLockRecord(value: unknown): Record<string, boolean> {
   if (!isRecord(value)) return {};
   return Object.fromEntries(
-    Object.entries(value).filter((entry): entry is [string, boolean] => typeof entry[1] === 'boolean'),
+    Object.entries(value).filter(
+      (entry): entry is [string, boolean] => validVehicleIds.has(entry[0]) && typeof entry[1] === 'boolean',
+    ),
   );
+}
+
+function sanitizeMemoryBest(value: unknown): Record<string, MemoryBestResult> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter(
+    (entry): entry is [string, MemoryBestResult] => {
+      const [key, result] = entry;
+      if (!/^(vehicle|color|category)-(4|6|8)$/.test(key) || !isRecord(result)) return false;
+      return Number.isInteger(result.moves) && (result.moves as number) > 0
+        && Number.isInteger(result.seconds) && (result.seconds as number) >= 0;
+    },
+  ));
 }
 
 function sanitizeV2(value: unknown): StorageV2 {
@@ -74,10 +101,13 @@ function sanitizeV2(value: unknown): StorageV2 {
   return {
     colorOverrides: sanitizeEnumRecord<VehicleColor>(value.colorOverrides, validColors),
     categoryOverrides: sanitizeEnumRecord<VehicleCategory>(value.categoryOverrides, validCategories),
-    lockedColors: sanitizeBooleanRecord(value.lockedColors),
-    lockedCategories: sanitizeBooleanRecord(value.lockedCategories),
+    // Missing lock entries come from older saves. Treat the built-in tags as
+    // reviewed by default while preserving explicit user unlocks (`false`).
+    lockedColors: { ...createDefaultLocks(), ...sanitizeLockRecord(value.lockedColors) },
+    lockedCategories: { ...createDefaultLocks(), ...sanitizeLockRecord(value.lockedCategories) },
     collectedCards,
     streak,
+    memoryBest: sanitizeMemoryBest(value.memoryBest),
   };
 }
 

@@ -1,12 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readV2, writeV2, migrateV1toV2, DEFAULT_V2, type StorageV2 } from '../storage';
+import { VEHICLES } from '../vehicleData';
 
 describe('storage', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => vi.restoreAllMocks());
 
-  it('should return default empty state when nothing stored', () => {
+  it('locks every built-in color and category by default', () => {
     expect(readV2()).toEqual(DEFAULT_V2);
+    expect(Object.keys(DEFAULT_V2.lockedColors)).toHaveLength(VEHICLES.length);
+    expect(Object.keys(DEFAULT_V2.lockedCategories)).toHaveLength(VEHICLES.length);
+    expect(Object.values(DEFAULT_V2.lockedColors).every(Boolean)).toBe(true);
+    expect(Object.values(DEFAULT_V2.lockedCategories).every(Boolean)).toBe(true);
   });
 
   it('should persist and read colorOverrides', () => {
@@ -19,6 +24,20 @@ describe('storage', () => {
     const data = { ...DEFAULT_V2, collectedCards: ['458', 'g63'] };
     writeV2(data);
     expect(readV2().collectedCards).toEqual(['458', 'g63']);
+  });
+
+  it('persists valid memory best results and removes malformed entries', () => {
+    localStorage.setItem('car-car-adventure-tags-v2', JSON.stringify({
+      memoryBest: {
+        'vehicle-4': { moves: 12, seconds: 34 },
+        'vehicle-5': { moves: 1, seconds: 1 },
+        'color-6': { moves: -1, seconds: 20 },
+      },
+    }));
+
+    expect(readV2().memoryBest).toEqual({
+      'vehicle-4': { moves: 12, seconds: 34 },
+    });
   });
 
   it('should migrate v1 data to v2', () => {
@@ -42,24 +61,42 @@ describe('storage', () => {
     expect(readV2()).toEqual(DEFAULT_V2);
   });
 
-  it('sanitizes malformed fields, stale cards, and duplicate cards', () => {
+  it('sanitizes malformed fields while preserving explicit unlocks', () => {
     localStorage.setItem('car-car-adventure-tags-v2', JSON.stringify({
       colorOverrides: { '458': 'red', g63: 'neon' },
       categoryOverrides: { '458': 'race', g63: 42 },
-      lockedColors: { red: true, blue: 'yes' },
-      lockedCategories: null,
+      lockedColors: { '458': false, g63: 'yes', removed: true },
+      lockedCategories: { g63: false },
       collectedCards: ['458', 'removed-card', '458', 7],
       streak: -3,
     }));
 
-    expect(readV2()).toEqual({
-      colorOverrides: { '458': 'red' },
-      categoryOverrides: { '458': 'race' },
-      lockedColors: { red: true },
-      lockedCategories: {},
-      collectedCards: ['458'],
-      streak: 0,
-    });
+    const restored = readV2();
+    expect(restored.colorOverrides).toEqual({ '458': 'red' });
+    expect(restored.categoryOverrides).toEqual({ '458': 'race' });
+    expect(restored.collectedCards).toEqual(['458']);
+    expect(restored.streak).toBe(0);
+    expect(restored.lockedColors['458']).toBe(false);
+    expect(restored.lockedColors.g63).toBe(true);
+    expect(restored.lockedColors.removed).toBeUndefined();
+    expect(restored.lockedCategories.g63).toBe(false);
+    expect(Object.keys(restored.lockedColors)).toHaveLength(VEHICLES.length);
+    expect(Object.keys(restored.lockedCategories)).toHaveLength(VEHICLES.length);
+  });
+
+  it('backfills default locks into older v2 saves', () => {
+    localStorage.setItem('car-car-adventure-tags-v2', JSON.stringify({
+      colorOverrides: { '458': 'blue' },
+      categoryOverrides: {},
+      collectedCards: [],
+      streak: 2,
+    }));
+
+    const restored = readV2();
+    expect(restored.colorOverrides).toEqual({ '458': 'blue' });
+    expect(restored.streak).toBe(2);
+    expect(Object.values(restored.lockedColors).every(Boolean)).toBe(true);
+    expect(Object.values(restored.lockedCategories).every(Boolean)).toBe(true);
   });
 
   it('returns false instead of crashing when storage writes fail', () => {

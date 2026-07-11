@@ -12,6 +12,7 @@
 - **类别游戏** — 识别赛车、巴士、工程车、摩托车等类别
 - **混合游戏** — 颜色 + 类别交叉匹配，多目标寻找
 - **数学游戏** — 基于收集车辆的加减法计数
+- **记忆车库** — 按相同车辆、颜色或车型翻牌配对，支持 4×4、6×6、8×8
 - **收藏车库** — 每连续答对 5 题获得一张卡牌，52 张可收集
 - **中英双语** — 一键切换，车辆名称/提示/UI 全覆盖
 - **家长控制** — 标记/锁定车辆颜色和类别，支持按颜色/类别筛选
@@ -42,6 +43,9 @@ npm run build
 
 # 运行测试
 npm test
+
+# 从车辆原图重新生成 320px WebP 缩略图
+npm run thumbnails
 ```
 
 ## 项目结构
@@ -53,7 +57,8 @@ src/
 ├── vehicleData.ts         # 52 辆车数据模型
 ├── storage.ts             # localStorage 读写
 ├── game/
-│   └── engine.ts          # 游戏引擎纯函数 (回合生成/判分)
+│   ├── engine.ts          # 颜色/车型/数学游戏引擎
+│   └── memory.ts          # 记忆翻牌牌组生成与配对规则
 ├── context/
 │   └── GameContext.tsx     # 全局状态管理
 ├── components/
@@ -61,6 +66,7 @@ src/
 │   └── RewardModal.tsx    # 卡牌奖励弹窗
 ├── views/
 │   ├── PlayView.tsx       # 游戏界面
+│   ├── MemoryView.tsx     # 记忆车库翻牌界面
 │   ├── GarageView.tsx     # 收藏车库
 │   └── ParentsView.tsx    # 家长控制面板
 └── __tests__/             # 23 个测试用例

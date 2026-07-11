@@ -3,6 +3,7 @@ import { Vehicle, VehicleColor } from '../vehicleData';
 import { Round, UI_TEXT, assetUrl, Language } from '../constants';
 import { useGame } from '../context/GameContext';
 import { formatRoundLabel } from '../game/engine';
+import { formatCorrectPrompt, formatWrongPrompt } from '../game/playCopy';
 
 function formatFindPrompt(roundData: Round | null, t: typeof UI_TEXT['en']['play'], language: Language, colorLabel: (c: VehicleColor) => string): string {
   if (!roundData) return `${t.find} ${t.fallbackColor}`;
@@ -18,14 +19,6 @@ function formatIdlePrompt(roundData: Round, t: typeof UI_TEXT['en']['play'], lan
   const label = formatRoundLabel(roundData, language, colorLabel);
   const isCategory = roundData.questionType === 'category';
   return language === 'zh' ? `${prefix}${label}${suffix}` : isCategory ? `${prefix} ${label}${suffix}` : `${prefix} ${label} ${suffix}`;
-}
-
-function formatCorrectPrompt(roundData: Round, t: typeof UI_TEXT['en']['play'], language: Language, colorLabel: (c: VehicleColor) => string): string {
-  const label = formatRoundLabel(roundData, language, colorLabel);
-  if (roundData.questionType === 'mixed') {
-    return language === 'zh' ? `${t.correctPrefixMixed}${roundData.targetCount}${t.correctSuffixMixed}` : `${t.correctPrefixMixed} ${roundData.targetCount} ${t.correctSuffixMixed}`;
-  }
-  return language === 'zh' ? `${t.correctPrefixColor}${roundData.targetCount}辆${label}车。` : `${t.correctPrefixColor} ${roundData.targetCount} ${label.toLowerCase()} ${t.correctSuffixColor}`;
 }
 
 function formatProgressPrompt(roundData: Round, t: typeof UI_TEXT['en']['play'], language: Language): string {
@@ -139,7 +132,7 @@ export function PlayView() {
                 </div>
               </div>
             ) : round.result === 'wrong' ? (
-              t.play.wrong
+              formatWrongPrompt(round, t.play)
             ) : (
               formatIdlePrompt(round, t.play, language, colorLabel)
             )}
