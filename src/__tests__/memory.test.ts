@@ -6,9 +6,9 @@ import {
   createMemoryDeck,
   memoryBestKey,
   memoryPairCount,
-  memoryThumbnailPath,
   type MemoryBoardSize,
 } from '../game/memory';
+import { vehicleThumbnailPath } from '../assets';
 
 const colorForVehicle = (vehicle: (typeof VEHICLES)[number]) => vehicle.color;
 const categoryForVehicle = (vehicle: (typeof VEHICLES)[number]) => vehicle.category;
@@ -81,7 +81,7 @@ describe('memory game engine', () => {
 
   it('builds stable storage and thumbnail keys', () => {
     expect(memoryBestKey('category', 6)).toBe('category-6');
-    expect(memoryThumbnailPath(VEHICLES[0])).toMatch(/^\/vehicle-thumbs\/.+\.webp$/);
+    expect(vehicleThumbnailPath(VEHICLES[0])).toMatch(/^\/vehicle-thumbs\/.+\.webp$/);
   });
 
 });

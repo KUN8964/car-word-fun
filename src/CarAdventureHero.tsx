@@ -4,11 +4,13 @@ import {
 } from 'lucide-react';
 import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VEHICLES, Vehicle } from './vehicleData';
+import { vehicleThumbnailPath } from './assets';
 import {
   View, Direction, CardRole, Language,
   NOISE_BACKGROUND, HERO_SLIDES, HERO_VEHICLE_IDS, UI_TEXT, assetUrl,
 } from './constants';
-import { GameProvider, useGame } from './context/GameContext';
+import { GameProvider } from './context/GameContext';
+import { useApp } from './context/AppContext';
 import { Header } from './components/Header';
 import { PlayView } from './views/PlayView';
 import { GarageView } from './views/GarageView';
@@ -55,7 +57,7 @@ function getCardStyle(role: CardRole, isMobile: boolean): CSSProperties {
 // ── Home View ────────────────────────────────────────────
 
 function HomeView() {
-  const { openView, language } = useGame();
+  const { openView, language } = useApp();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
@@ -151,7 +153,7 @@ function HomeView() {
           const role = roleForIndex(index);
           return (
             <article key={vehicle.id} data-hero-role={role} data-vehicle-id={vehicle.id} aria-hidden={role !== 'center'} className="flex items-center justify-center" style={getCardStyle(role, isMobile)}>
-              <img alt={vehicle.name} draggable={false} loading={index < 4 ? 'eager' : 'lazy'} style={getVehicleImageStyle(role)} src={assetUrl(vehicle.image)} />
+              <img alt={vehicle.name} draggable={false} loading={index < 4 ? 'eager' : 'lazy'} style={getVehicleImageStyle(role)} src={assetUrl(vehicleThumbnailPath(vehicle))} />
             </article>
           );
         })}
@@ -202,7 +204,7 @@ function HomeView() {
 // ── App Shell ────────────────────────────────────────────
 
 function AppShell() {
-  const { view } = useGame();
+  const { view } = useApp();
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 

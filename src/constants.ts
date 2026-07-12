@@ -6,6 +6,21 @@ export type CardRole = 'center' | 'left' | 'right' | 'back' | 'hidden';
 export type Language = 'en' | 'zh';
 export type NavLabel = 'Start' | 'Games' | 'Memory' | 'Garage' | 'Colors' | 'Parents';
 
+type DeepTranslation<T> = T extends string
+  ? string
+  : T extends readonly (infer Item)[]
+    ? Array<DeepTranslation<Item>>
+    : T extends object
+      ? { [Key in keyof T]: DeepTranslation<T[Key]> }
+      : T;
+
+function defineTranslations<const English extends {
+  nav: Record<NavLabel, string>;
+  heroSlides: Array<{ title: string; label: string; description: string; cta: string }>;
+}>(translations: { en: English; zh: DeepTranslation<English> }): Record<Language, DeepTranslation<English>> {
+  return translations as Record<Language, DeepTranslation<English>>;
+}
+
 export type HeroSlide = {
   vehicleId: string;
   title: string;
@@ -170,7 +185,7 @@ export const NAV_ITEMS: Array<{ label: NavLabel; view: View }> = [
   { label: 'Parents', view: 'parents' },
 ];
 
-export const UI_TEXT = {
+export const UI_TEXT = defineTranslations({
   en: {
     languageToggle: '中文',
     nav: {
@@ -220,8 +235,10 @@ export const UI_TEXT = {
     parents: {
       kicker: 'Parent controls', title: 'Mark vehicle colors',
       description: 'This is the lightweight data layer: color tags are saved in this browser with localStorage. No account, no server, easy to revise.',
-      reset: 'Reset tags', all: 'All', mainColor: 'Main color',
+      reset: 'Reset tags', all: 'All', mainColor: 'Main color', category: 'Category',
+      lockColor: 'Lock color', unlockColor: 'Unlock color', lockCategory: 'Lock category', unlockCategory: 'Unlock category',
     },
+    reward: { newCard: 'New Card!', continue: 'Continue', allCollected: 'All vehicles collected!', amazing: 'Amazing!' },
     aria: { openMenu: 'Open menu', closeMenu: 'Close menu', previous: 'Previous game mode', next: 'Next game mode', switchLanguage: 'Switch language' },
   },
   zh: {
@@ -266,20 +283,13 @@ export const UI_TEXT = {
     parents: {
       kicker: '家长控制', title: '标记车辆颜色',
       description: '这是轻量数据层：颜色标签保存在当前浏览器的 localStorage 中。无需账号、无需服务器，随时可以修改。',
-      reset: '重置标签', all: '全部', mainColor: '主颜色',
+      reset: '重置标签', all: '全部', mainColor: '主颜色', category: '类别',
+      lockColor: '锁定颜色', unlockColor: '解锁颜色', lockCategory: '锁定类别', unlockCategory: '解锁类别',
     },
+    reward: { newCard: '获得了新卡牌！', continue: '继续游戏', allCollected: '已收集全部车辆！', amazing: '太厉害了！' },
     aria: { openMenu: '打开菜单', closeMenu: '关闭菜单', previous: '上一个游戏模式', next: '下一个游戏模式', switchLanguage: '切换语言' },
   },
-} satisfies Record<Language, {
-  languageToggle: string;
-  nav: Record<NavLabel, string>;
-  heroSlides: Array<{ title: string; label: string; description: string; cta: string }>;
-  play: Record<string, string>;
-  garage: Record<string, string>;
-  memory: Record<string, string>;
-  parents: Record<string, string>;
-  aria: Record<string, string>;
-}>;
+});
 
 export function assetUrl(path: string) {
   return `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`;

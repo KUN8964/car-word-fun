@@ -1,13 +1,18 @@
 import { Lock, Unlock } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { VEHICLES, VehicleColor, VehicleCategory } from '../vehicleData';
 import { COLOR_LABELS, CATEGORY_LABELS, COLOR_OPTIONS, CATEGORY_OPTIONS, UI_TEXT, assetUrl } from '../constants';
-import { useGame } from '../context/GameContext';
+import { useApp } from '../context/AppContext';
+import { usePlayer } from '../context/PlayerContext';
+import { vehicleThumbnailPath } from '../assets';
 
 export function ParentsView() {
+  const { language } = useApp();
   const {
-    language, storage, setStorage, parentFilter, setParentFilter,
-    colorLabel, colorCounts, colorForVehicle, categoryForVehicle, resetTags,
-  } = useGame();
+    storage, setStorage, colorCounts, colorForVehicle, categoryForVehicle, resetTags,
+  } = usePlayer();
+  const [parentFilter, setParentFilter] = useState<'all' | VehicleColor | VehicleCategory>('all');
+  const colorLabel = useCallback((color: VehicleColor) => COLOR_LABELS[language][color], [language]);
   const t = UI_TEXT[language];
 
   const updateVehicleColor = (vehicleId: string, color: VehicleColor) => {
@@ -91,7 +96,7 @@ export function ParentsView() {
           return (
             <article key={vehicle.id} className="grid grid-cols-[112px_1fr] gap-4 rounded-[28px] border border-[#202A36]/10 bg-white/35 p-3">
               <div className="flex aspect-[4/3] items-center justify-center rounded-3xl bg-white/35">
-                <img className="h-full w-full object-contain" src={assetUrl(vehicle.image)} alt={vehicle.name} />
+                <img className="h-full w-full object-contain" src={assetUrl(vehicleThumbnailPath(vehicle))} alt={vehicle.name} loading="lazy" />
               </div>
               <div className="min-w-0">
                 <strong className="block truncate text-sm">{vehicle.name}</strong>
@@ -104,7 +109,7 @@ export function ParentsView() {
                     type="button"
                     className={`ml-1 rounded-full p-0.5 transition-colors ${colorLocked ? 'bg-[#202A36] text-white' : 'bg-[#202A36]/10 text-[#202A36]/50 hover:bg-[#202A36]/20'}`}
                     onClick={() => toggleLockColor(vehicle.id)}
-                    title={colorLocked ? '解锁颜色' : '锁定颜色'}
+                    title={colorLocked ? t.parents.unlockColor : t.parents.lockColor}
                   >
                     {colorLocked ? <Lock size={14} strokeWidth={2.5} /> : <Unlock size={14} strokeWidth={2.5} />}
                   </button>
@@ -122,13 +127,13 @@ export function ParentsView() {
                 </select>
                 <div className="mt-3 flex items-center gap-2">
                   <label className="text-xs font-extrabold uppercase tracking-[0.12em] opacity-60">
-                    {language === 'zh' ? '类别' : 'Category'}
+                    {t.parents.category}
                   </label>
                   <button
                     type="button"
                     className={`ml-1 rounded-full p-0.5 transition-colors ${catLocked ? 'bg-[#202A36] text-white' : 'bg-[#202A36]/10 text-[#202A36]/50 hover:bg-[#202A36]/20'}`}
                     onClick={() => toggleLockCategory(vehicle.id)}
-                    title={catLocked ? '解锁类别' : '锁定类别'}
+                    title={catLocked ? t.parents.unlockCategory : t.parents.lockCategory}
                   >
                     {catLocked ? <Lock size={14} strokeWidth={2.5} /> : <Unlock size={14} strokeWidth={2.5} />}
                   </button>

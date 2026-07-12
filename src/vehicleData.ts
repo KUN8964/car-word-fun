@@ -119,7 +119,7 @@ export const VEHICLES: Vehicle[] = [
     "name": "法拉利 F2004",
     "image": "/vehicle-library/f2004.png",
     "color": "red",
-    "category": "car"
+    "category": "race"
   },
   {
     "id": "250gto",
@@ -259,14 +259,14 @@ export const VEHICLES: Vehicle[] = [
     "name": "迈凯轮F1",
     "image": "/vehicle-library/f1.png",
     "color": "orange",
-    "category": "race"
+    "category": "car"
   },
   {
     "id": "mp4",
     "name": "迈凯轮MP4",
     "image": "/vehicle-library/mp4.png",
     "color": "white",
-    "category": "car"
+    "category": "race"
   },
   {
     "id": "w07-hybrid",
@@ -280,14 +280,14 @@ export const VEHICLES: Vehicle[] = [
     "name": "庞巴迪喜度GTI",
     "image": "/vehicle-library/gti.png",
     "color": "yellow",
-    "category": "motorcycle"
+    "category": "watercraft"
   },
   {
     "id": "rxt-x-400",
     "name": "庞巴迪喜度RXT-X 400",
     "image": "/vehicle-library/rxt-x-400.png",
     "color": "green",
-    "category": "motorcycle"
+    "category": "watercraft"
   },
   {
     "id": "gtr",
@@ -350,7 +350,7 @@ export const VEHICLES: Vehicle[] = [
     "name": "主战坦克",
     "image": "/vehicle-library/vehicle-48.png",
     "color": "green",
-    "category": "offroad"
+    "category": "tank"
   },
   {
     "id": "cat-797",

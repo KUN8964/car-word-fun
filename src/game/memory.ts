@@ -27,11 +27,6 @@ export function memoryBestKey(rule: MemoryRule, size: MemoryBoardSize): string {
   return `${rule}-${size}`;
 }
 
-export function memoryThumbnailPath(vehicle: Vehicle): string {
-  const filename = vehicle.image.split('/').pop()?.replace(/\.[^.]+$/, '') || vehicle.id;
-  return `/vehicle-thumbs/${filename}.webp`;
-}
-
 export function cardsMatch(first: MemoryCard, second: MemoryCard): boolean {
   return first.id !== second.id && first.matchKey === second.matchKey;
 }

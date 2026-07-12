@@ -1,42 +1,39 @@
 import { ArrowLeft, Brain, CarFront, Clock3, Grid3X3, Play, RotateCcw, Trophy } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState, type ReactNode } from 'react';
 import { CATEGORY_LABELS, COLOR_LABELS, UI_TEXT, assetUrl } from '../constants';
-import { useGame } from '../context/GameContext';
+import { vehicleThumbnailPath } from '../assets';
+import { useApp } from '../context/AppContext';
+import { usePlayer } from '../context/PlayerContext';
 import {
   availableMemoryRules,
-  cardsMatch,
   createMemoryDeck,
   memoryBestKey,
   memoryPairCount,
-  memoryThumbnailPath,
   type MemoryBoardSize,
   type MemoryCard,
   type MemoryRule,
 } from '../game/memory';
+import {
+  createMemoryGameState,
+  currentMemoryPairMatches,
+  memoryGameReducer,
+} from '../game/memorySession';
 import { VEHICLES } from '../vehicleData';
-
-type MemoryPhase = 'setup' | 'preview' | 'playing' | 'resolving' | 'complete';
 
 const BOARD_SIZES: MemoryBoardSize[] = [4, 6, 8];
 const RULES: MemoryRule[] = ['vehicle', 'color', 'category'];
 const PREVIEW_SECONDS: Record<MemoryBoardSize, number> = { 4: 5, 6: 4, 8: 3 };
 
 export function MemoryView() {
-  const {
-    language, storage, setStorage, colorForVehicle, categoryForVehicle,
-  } = useGame();
+  const { language } = useApp();
+  const { storage, setStorage, colorForVehicle, categoryForVehicle } = usePlayer();
   const t = UI_TEXT[language].memory;
   const [rule, setRule] = useState<MemoryRule>('vehicle');
   const [size, setSize] = useState<MemoryBoardSize>(4);
-  const [cards, setCards] = useState<MemoryCard[]>([]);
-  const [phase, setPhase] = useState<MemoryPhase>('setup');
-  const [previewRemaining, setPreviewRemaining] = useState(0);
-  const [flippedIds, setFlippedIds] = useState<string[]>([]);
-  const [matchedIds, setMatchedIds] = useState<string[]>([]);
-  const [moves, setMoves] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
-  const [startedAt, setStartedAt] = useState<number | null>(null);
-  const resolveTimer = useRef<number | null>(null);
+  const [session, dispatch] = useReducer(memoryGameReducer, undefined, createMemoryGameState);
+  const {
+    cards, phase, previewRemaining, flippedIds, matchedIds, moves, elapsed,
+  } = session;
 
   const eligibleForRule = useCallback((targetRule: MemoryRule) => VEHICLES.filter((vehicle) => {
     if (targetRule === 'vehicle') {
@@ -59,29 +56,28 @@ export function MemoryView() {
     ? eligibleVehicles.length >= pairCount
     : supportedRules.includes(rule);
   const best = storage.memoryBest[memoryBestKey(rule, size)];
-
-  useEffect(() => () => {
-    if (resolveTimer.current) window.clearTimeout(resolveTimer.current);
-  }, []);
+  const resolvingPairMatches = currentMemoryPairMatches(session);
 
   useEffect(() => {
     if (phase !== 'preview') return;
-    if (previewRemaining <= 0) {
-      setPhase('playing');
-      setStartedAt(Date.now());
-      return;
-    }
-    const timer = window.setTimeout(() => setPreviewRemaining((value) => value - 1), 1000);
+    const timer = window.setTimeout(() => dispatch({ type: 'PREVIEW_TICK', now: Date.now() }), 1000);
     return () => window.clearTimeout(timer);
   }, [phase, previewRemaining]);
 
   useEffect(() => {
-    if ((phase !== 'playing' && phase !== 'resolving') || !startedAt) return;
-    const update = () => setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    if ((phase !== 'playing' && phase !== 'resolving') || session.startedAt === null) return;
+    const update = () => dispatch({ type: 'ELAPSED_TICK', now: Date.now() });
     update();
     const timer = window.setInterval(update, 1000);
     return () => window.clearInterval(timer);
-  }, [phase, startedAt]);
+  }, [phase, session.startedAt]);
+
+  useEffect(() => {
+    if (phase !== 'resolving') return;
+    const delay = resolvingPairMatches ? 450 : 850;
+    const timer = window.setTimeout(() => dispatch({ type: 'RESOLVE', now: Date.now() }), delay);
+    return () => window.clearTimeout(timer);
+  }, [phase, resolvingPairMatches]);
 
   const startGame = useCallback(() => {
     const deck = createMemoryDeck({
@@ -92,15 +88,7 @@ export function MemoryView() {
       categoryForVehicle,
     });
     if (deck.length === 0) return;
-    if (resolveTimer.current) window.clearTimeout(resolveTimer.current);
-    setCards(deck);
-    setFlippedIds([]);
-    setMatchedIds([]);
-    setMoves(0);
-    setElapsed(0);
-    setStartedAt(null);
-    setPreviewRemaining(PREVIEW_SECONDS[size]);
-    setPhase('preview');
+    dispatch({ type: 'START', cards: deck, previewSeconds: PREVIEW_SECONDS[size] });
   }, [eligibleVehicles, rule, size, colorForVehicle, categoryForVehicle]);
 
   const saveBest = useCallback((finalMoves: number, finalSeconds: number) => {
@@ -121,53 +109,16 @@ export function MemoryView() {
     });
   }, [rule, size, setStorage]);
 
+  useEffect(() => {
+    if (phase === 'complete') saveBest(moves, elapsed);
+  }, [phase, moves, elapsed, saveBest]);
+
   const handleCardClick = (card: MemoryCard) => {
-    if (phase !== 'playing' || matchedIds.includes(card.id) || flippedIds.includes(card.id)) return;
-    if (flippedIds.length === 0) {
-      setFlippedIds([card.id]);
-      return;
-    }
-
-    const first = cards.find((candidate) => candidate.id === flippedIds[0]);
-    if (!first) {
-      setFlippedIds([card.id]);
-      return;
-    }
-
-    const nextMoves = moves + 1;
-    const nextFlipped = [first.id, card.id];
-    setMoves(nextMoves);
-    setFlippedIds(nextFlipped);
-    setPhase('resolving');
-
-    if (cardsMatch(first, card)) {
-      resolveTimer.current = window.setTimeout(() => {
-        const nextMatched = [...matchedIds, ...nextFlipped];
-        setMatchedIds(nextMatched);
-        setFlippedIds([]);
-        if (nextMatched.length === cards.length) {
-          const finalSeconds = startedAt ? Math.max(1, Math.floor((Date.now() - startedAt) / 1000)) : elapsed;
-          setElapsed(finalSeconds);
-          setPhase('complete');
-          saveBest(nextMoves, finalSeconds);
-        } else {
-          setPhase('playing');
-        }
-      }, 450);
-    } else {
-      resolveTimer.current = window.setTimeout(() => {
-        setFlippedIds([]);
-        setPhase('playing');
-      }, 850);
-    }
+    dispatch({ type: 'FLIP_CARD', cardId: card.id });
   };
 
   const resetToSetup = () => {
-    if (resolveTimer.current) window.clearTimeout(resolveTimer.current);
-    setCards([]);
-    setFlippedIds([]);
-    setMatchedIds([]);
-    setPhase('setup');
+    dispatch({ type: 'RESET' });
   };
 
   if (phase === 'setup') {
@@ -313,7 +264,7 @@ export function MemoryView() {
                     style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
                   >
                     <img
-                      src={assetUrl(memoryThumbnailPath(card.vehicle))}
+                      src={assetUrl(vehicleThumbnailPath(card.vehicle))}
                       alt=""
                       draggable={false}
                       className="h-[78%] w-full object-contain"

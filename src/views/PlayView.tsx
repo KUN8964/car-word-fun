@@ -1,7 +1,11 @@
 import { Check, RotateCcw } from 'lucide-react';
+import { useCallback, useEffect } from 'react';
 import { Vehicle, VehicleColor } from '../vehicleData';
-import { Round, UI_TEXT, assetUrl, Language } from '../constants';
-import { useGame } from '../context/GameContext';
+import { COLOR_LABELS, Round, UI_TEXT, assetUrl, Language } from '../constants';
+import { useApp } from '../context/AppContext';
+import { usePlayer } from '../context/PlayerContext';
+import { useQuiz } from '../context/QuizContext';
+import { vehicleThumbnailPath } from '../assets';
 import { formatRoundLabel } from '../game/engine';
 import { formatCorrectPrompt, formatWrongPrompt } from '../game/playCopy';
 
@@ -28,12 +32,15 @@ function formatProgressPrompt(roundData: Round, t: typeof UI_TEXT['en']['play'],
 }
 
 export function PlayView() {
-  const {
-    language, round, score, markedVehicles,
-    generateRound, handlePick, handleMathPick,
-    openView, colorLabel, colorForVehicle, categoryForVehicle,
-  } = useGame();
+  const { language, openView } = useApp();
+  const { markedVehicles, colorForVehicle, categoryForVehicle } = usePlayer();
+  const { round, score, generateRound, handlePick, handleMathPick } = useQuiz();
+  const colorLabel = useCallback((color: VehicleColor) => COLOR_LABELS[language][color], [language]);
   const t = UI_TEXT[language];
+
+  useEffect(() => {
+    if (!round) generateRound();
+  }, [round, generateRound]);
 
   if (markedVehicles.length === 0) {
     return (
@@ -179,7 +186,7 @@ export function PlayView() {
                     type="button"
                     onClick={() => handlePick(vehicle)}
                   >
-                    <img className="h-[76%] w-full object-contain transition-transform duration-200 group-hover:scale-[1.03]" src={assetUrl(vehicle.image)} alt={vehicle.name} />
+                    <img className="h-[76%] w-full object-contain transition-transform duration-200 group-hover:scale-[1.03]" src={assetUrl(vehicleThumbnailPath(vehicle))} alt={vehicle.name} loading="lazy" />
                     <span className="mt-1 max-w-full truncate text-xs font-bold opacity-70">{vehicle.name}</span>
                     {selected && (
                       <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-green-700 text-white">

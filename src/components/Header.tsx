@@ -1,6 +1,6 @@
 import { Menu, X } from 'lucide-react';
 import { Language, NAV_ITEMS, UI_TEXT } from '../constants';
-import { useGame } from '../context/GameContext';
+import { useApp } from '../context/AppContext';
 
 interface HeaderProps {
   isMobile: boolean;
@@ -9,7 +9,7 @@ interface HeaderProps {
 }
 
 export function Header({ isMobile, isMenuOpen, setIsMenuOpen }: HeaderProps) {
-  const { view, openView, language, setLanguage } = useGame();
+  const { view, openView, language, setLanguage } = useApp();
   const t = UI_TEXT[language];
 
   return (

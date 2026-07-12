@@ -1,9 +1,15 @@
+import { useState } from 'react';
 import { VEHICLES } from '../vehicleData';
 import { UI_TEXT, assetUrl } from '../constants';
-import { useGame } from '../context/GameContext';
+import { useApp } from '../context/AppContext';
+import { usePlayer } from '../context/PlayerContext';
+import { CARD_BACK_THUMBNAIL_PATH, cardThumbnailPath } from '../assets';
 
 export function GarageView() {
-  const { storage, markedVehicles, zoomedCard, setZoomedCard, zoomAnimating, setZoomAnimating, language } = useGame();
+  const { language } = useApp();
+  const { storage, markedVehicles } = usePlayer();
+  const [zoomedCard, setZoomedCard] = useState<string | null>(null);
+  const [zoomAnimating, setZoomAnimating] = useState(false);
   const t = UI_TEXT[language];
 
   const handleOpenCard = (id: string) => {
@@ -40,7 +46,7 @@ export function GarageView() {
               >
                 <img
                   className="aspect-[3/4] w-full rounded-xl object-cover"
-                  src={`${import.meta.env.BASE_URL}cards/${encodeURIComponent(`卡牌-${vehicle.name}`)}.png`}
+                  src={assetUrl(cardThumbnailPath(vehicle))}
                   alt={vehicle.name}
                   loading="lazy"
                   style={collected ? {} : { filter: 'grayscale(1) opacity(0.35)' }}
@@ -75,8 +81,8 @@ export function GarageView() {
               }}
               onClick={(e) => { e.stopPropagation(); handleCloseCard(); }}
             >
-              <img className="w-full rounded-2xl shadow-2xl" src={`${import.meta.env.BASE_URL}cards/${encodeURIComponent(`卡牌-${vehicle.name}`)}.png`} alt={vehicle.name} style={{ backfaceVisibility: 'hidden' }} />
-              <img className="absolute inset-0 w-full rounded-2xl shadow-2xl" src={`${import.meta.env.BASE_URL}cards/卡牌-背面.png`} alt="" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }} />
+              <img className="w-full rounded-2xl shadow-2xl" src={assetUrl(cardThumbnailPath(vehicle))} alt={vehicle.name} style={{ backfaceVisibility: 'hidden' }} />
+              <img className="absolute inset-0 w-full rounded-2xl shadow-2xl" src={assetUrl(CARD_BACK_THUMBNAIL_PATH)} alt="" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }} />
             </div>
             <p className="absolute bottom-12 text-center text-lg font-extrabold text-white drop-shadow-lg">{vehicle.name}</p>
           </div>

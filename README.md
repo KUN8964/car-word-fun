@@ -27,7 +27,7 @@
 | 图标 | lucide-react |
 | 测试 | Vitest + @testing-library |
 | 存储 | localStorage (v2 架构，含 v1 迁移) |
-| 部署 | GitHub Pages (`gh-pages` 分支) |
+| 部署 | GitHub Actions + GitHub Pages |
 
 ## 快速开始
 
@@ -44,7 +44,10 @@ npm run build
 # 运行测试
 npm test
 
-# 从车辆原图重新生成 320px WebP 缩略图
+# 运行核心业务覆盖率检查（最低 70%）
+npm run coverage
+
+# 生成 320px 车辆缩略图和 512px 卡牌 WebP
 npm run thumbnails
 ```
 
@@ -52,25 +55,31 @@ npm run thumbnails
 
 ```
 src/
-├── CarAdventureHero.tsx   # 根组件 + 首页轮播 (241 行)
-├── constants.ts           # 类型定义、i18n、配置常量
-├── vehicleData.ts         # 52 辆车数据模型
-├── storage.ts             # localStorage 读写
+├── CarAdventureHero.tsx    # 应用外壳与首页轮播
+├── assets.ts               # WebP 运行时资源路径
+├── constants.ts            # 类型安全的中英双语文案与配置
+├── vehicleData.ts          # 52 辆车的默认颜色/车型数据
+├── storage.ts              # localStorage 校验、迁移与读写
 ├── game/
-│   ├── engine.ts          # 颜色/车型/数学游戏引擎
-│   └── memory.ts          # 记忆翻牌牌组生成与配对规则
+│   ├── engine.ts           # 颜色/车型/数学游戏引擎
+│   ├── memory.ts           # 记忆牌组生成规则
+│   ├── memorySession.ts    # 纯记忆游戏状态机
+│   └── playCopy.ts         # 答题反馈文案生成
 ├── context/
-│   └── GameContext.tsx     # 全局状态管理
-├── components/
-│   ├── Header.tsx         # 导航头部
-│   └── RewardModal.tsx    # 卡牌奖励弹窗
-├── views/
-│   ├── PlayView.tsx       # 游戏界面
-│   ├── MemoryView.tsx     # 记忆车库翻牌界面
-│   ├── GarageView.tsx     # 收藏车库
-│   └── ParentsView.tsx    # 家长控制面板
-└── __tests__/             # 23 个测试用例
+│   ├── AppContext.tsx      # 导航与语言
+│   ├── PlayerContext.tsx   # 玩家数据与车辆标签
+│   ├── QuizContext.tsx     # 出题、得分与奖励
+│   └── GameContext.tsx     # Provider 组合入口
+├── views/                  # 首页之外的四个功能页面
+└── __tests__/              # 单元测试与组件集成测试
 ```
+
+## 图片资源
+
+- `public/vehicle-library/` 和 `public/cards/` 保存可重新生成缩略图的原始 PNG。
+- 页面运行时只使用 `public/vehicle-thumbs/` 和 `public/card-thumbs/` 下的压缩 WebP。
+- 生产构建会自动剔除原始 PNG 与未使用视频，当前 `dist/` 约 7 MB。
+- 修改原始图片后运行 `npm run thumbnails`，再提交生成的 WebP。
 
 ## 部署
 
@@ -84,4 +93,4 @@ src/
 
 ## License
 
-MIT
+MIT，详见 [LICENSE](./LICENSE)。
