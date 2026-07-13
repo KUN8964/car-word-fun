@@ -50,4 +50,23 @@ describe('MemoryView integration', () => {
     const stored = JSON.parse(localStorage.getItem('car-car-adventure-tags-v2') || '{}');
     expect(stored.memoryBest['vehicle-4'].moves).toBe(8);
   });
+
+  it('constrains an 8x8 board to the available viewport height', () => {
+    const { container } = render(
+      <GameProvider>
+        <MemoryView />
+      </GameProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /8×8/i }));
+    fireEvent.click(screen.getByRole('button', { name: /start memory game/i }));
+
+    expect(container.querySelectorAll('[data-memory-card]')).toHaveLength(64);
+    fireEvent.click(screen.getByRole('button', { name: 'Mute sounds' }));
+    expect(screen.getByRole('button', { name: 'Enable sounds' })).toBeInTheDocument();
+    const board = container.querySelector<HTMLElement>('[data-memory-board]');
+    expect(board).toHaveClass('memory-board');
+    expect(board?.style.getPropertyValue('--memory-board-max')).toBe('720px');
+    expect(board?.style.getPropertyValue('--memory-board-offset')).toBe('11rem');
+  });
 });

@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+.memory-board {
+  width: min(
+    100%,
+    var(--memory-board-max),
+    max(12rem, calc(100dvh - var(--memory-board-offset)))
+  );
+}
+
 :root {
   color: #202a36;
   background: #fff8ec;

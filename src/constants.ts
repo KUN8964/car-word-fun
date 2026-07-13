@@ -239,7 +239,7 @@ export const UI_TEXT = defineTranslations({
       lockColor: 'Lock color', unlockColor: 'Unlock color', lockCategory: 'Lock category', unlockCategory: 'Unlock category',
     },
     reward: { newCard: 'New Card!', continue: 'Continue', allCollected: 'All vehicles collected!', amazing: 'Amazing!' },
-    aria: { openMenu: 'Open menu', closeMenu: 'Close menu', previous: 'Previous game mode', next: 'Next game mode', switchLanguage: 'Switch language' },
+    aria: { openMenu: 'Open menu', closeMenu: 'Close menu', previous: 'Previous game mode', next: 'Next game mode', switchLanguage: 'Switch language', muteSounds: 'Mute sounds', enableSounds: 'Enable sounds' },
   },
   zh: {
     languageToggle: 'EN',
@@ -287,7 +287,7 @@ export const UI_TEXT = defineTranslations({
       lockColor: '锁定颜色', unlockColor: '解锁颜色', lockCategory: '锁定类别', unlockCategory: '解锁类别',
     },
     reward: { newCard: '获得了新卡牌！', continue: '继续游戏', allCollected: '已收集全部车辆！', amazing: '太厉害了！' },
-    aria: { openMenu: '打开菜单', closeMenu: '关闭菜单', previous: '上一个游戏模式', next: '下一个游戏模式', switchLanguage: '切换语言' },
+    aria: { openMenu: '打开菜单', closeMenu: '关闭菜单', previous: '上一个游戏模式', next: '下一个游戏模式', switchLanguage: '切换语言', muteSounds: '关闭音效', enableSounds: '开启音效' },
   },
 });
 

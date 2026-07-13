@@ -1,7 +1,8 @@
-import { ArrowLeft, Brain, CarFront, Clock3, Grid3X3, Play, RotateCcw, Trophy } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useReducer, useState, type ReactNode } from 'react';
+import { ArrowLeft, Brain, CarFront, Clock3, Grid3X3, Play, RotateCcw, Trophy, Volume2, VolumeX } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { CATEGORY_LABELS, COLOR_LABELS, UI_TEXT, assetUrl } from '../constants';
 import { vehicleThumbnailPath } from '../assets';
+import { playMemoryFlipSound, playMemoryRewardSound } from '../audio/memorySounds';
 import { useApp } from '../context/AppContext';
 import { usePlayer } from '../context/PlayerContext';
 import {
@@ -28,9 +29,12 @@ export function MemoryView() {
   const { language } = useApp();
   const { storage, setStorage, colorForVehicle, categoryForVehicle } = usePlayer();
   const t = UI_TEXT[language].memory;
+  const aria = UI_TEXT[language].aria;
   const [rule, setRule] = useState<MemoryRule>('vehicle');
   const [size, setSize] = useState<MemoryBoardSize>(4);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [session, dispatch] = useReducer(memoryGameReducer, undefined, createMemoryGameState);
+  const rewardedSession = useRef<number | null>(null);
   const {
     cards, phase, previewRemaining, flippedIds, matchedIds, moves, elapsed,
   } = session;
@@ -88,6 +92,7 @@ export function MemoryView() {
       categoryForVehicle,
     });
     if (deck.length === 0) return;
+    rewardedSession.current = null;
     dispatch({ type: 'START', cards: deck, previewSeconds: PREVIEW_SECONDS[size] });
   }, [eligibleVehicles, rule, size, colorForVehicle, categoryForVehicle]);
 
@@ -113,7 +118,15 @@ export function MemoryView() {
     if (phase === 'complete') saveBest(moves, elapsed);
   }, [phase, moves, elapsed, saveBest]);
 
+  useEffect(() => {
+    if (phase !== 'complete' || session.startedAt === null || rewardedSession.current === session.startedAt) return;
+    rewardedSession.current = session.startedAt;
+    if (soundEnabled) playMemoryRewardSound(calculateStars(size, moves));
+  }, [phase, session.startedAt, soundEnabled, size, moves]);
+
   const handleCardClick = (card: MemoryCard) => {
+    if (phase !== 'playing' || matchedIds.includes(card.id) || flippedIds.includes(card.id)) return;
+    if (soundEnabled) playMemoryFlipSound();
     dispatch({ type: 'FLIP_CARD', cardId: card.id });
   };
 
@@ -201,6 +214,8 @@ export function MemoryView() {
   const matchedPairs = matchedIds.length / 2;
   const stars = calculateStars(size, moves);
   const cardGap = size === 8 ? 'gap-1 sm:gap-2' : size === 6 ? 'gap-1.5 sm:gap-3' : 'gap-2 sm:gap-4';
+  const boardMaxWidth = 720;
+  const boardHeightOffset = phase === 'complete' ? '25rem' : '11rem';
 
   return (
     <main className="relative z-[5] mx-auto min-h-[100dvh] max-w-[1440px] px-2 pb-12 pt-24 sm:px-8 sm:pt-28">
@@ -209,6 +224,15 @@ export function MemoryView() {
           <ArrowLeft size={17} /> {t.back}
         </button>
         <div className="flex flex-wrap items-center justify-end gap-2 text-xs font-extrabold sm:text-sm">
+          <button
+            type="button"
+            aria-label={soundEnabled ? aria.muteSounds : aria.enableSounds}
+            aria-pressed={!soundEnabled}
+            onClick={() => setSoundEnabled((enabled) => !enabled)}
+            className="inline-flex items-center justify-center rounded-full border border-[#202A36]/12 bg-white/55 p-2.5"
+          >
+            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          </button>
           <Stat icon={<RotateCcw size={15} />} label={t.moves} value={moves} />
           <Stat icon={<Clock3 size={15} />} label={t.time} value={formatTime(elapsed)} />
           <Stat icon={<Trophy size={15} />} label={t.matched} value={`${matchedPairs}/${pairCount}`} />
@@ -227,9 +251,16 @@ export function MemoryView() {
         </section>
       )}
 
-      <div className="relative mx-auto" style={{ maxWidth: size === 4 ? 760 : size === 6 ? 1040 : 1280 }}>
+      <div
+        className="memory-board relative mx-auto"
+        data-memory-board
+        style={{
+          '--memory-board-max': `${boardMaxWidth}px`,
+          '--memory-board-offset': boardHeightOffset,
+        } as CSSProperties}
+      >
         {phase === 'preview' && (
-          <div className="pointer-events-none sticky top-24 z-40 mx-auto mb-3 flex w-fit items-center gap-3 rounded-full bg-[#202A36] px-5 py-3 font-extrabold text-white shadow-xl">
+          <div className="pointer-events-none absolute left-1/2 top-3 z-40 flex w-max -translate-x-1/2 items-center gap-3 rounded-full bg-[#202A36] px-5 py-3 font-extrabold text-white shadow-xl">
             <Brain size={19} /> {t.preview} <span className="text-[#54E84D]">{previewRemaining}</span>
           </div>
         )}
